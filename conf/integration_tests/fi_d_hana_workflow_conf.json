@@ -1,0 +1,171 @@
+{
+  "name": "{{ fi_d_hana_workflow_name }}",
+  "email_notifications": {
+    "no_alert_for_skipped_runs": false
+  },
+  "max_concurrent_runs": 1,
+  "format": "MULTI_TASK",
+  "tasks": [
+    {
+      "task_key": "setup",
+      "notebook_task": {
+        "notebook_path": "{{ repos_path }}/integration_tests/scripts/setup_daily_hana",
+        "base_parameters": {
+          "unique_repo_branch_id": "{{ unique_repo_branch_id }}",
+          "unique_repo_branch_id_schema": "{{ unique_repo_branch_id }}",
+          "repos_path": "{{ repos_path }}",
+          "fi_d_hana_dlt_pipeline_id": "{{ fi_d_hana_dlt_pipeline_id }}",
+          "env": "{{ env }}"
+        },
+        "source": "WORKSPACE"
+      },
+      "job_cluster_key": "integration-tests-cluster",
+      "timeout_seconds": 0,
+      "email_notifications": {}
+    },
+    {
+      "task_key": "process_start_dlt_pipeline",
+      "depends_on": [
+        {
+          "task_key": "setup"
+        }
+      ],
+      "notebook_task": {
+        "notebook_path": "{{ repos_path }}/dlt_pipelines/process_start_dlt_pipeline",
+        "base_parameters": {
+          "env": "{{ env }}",
+          "repos_path": "{{ repos_path }}",
+          "unique_repo_branch_id": "",
+          "unique_repo_branch_id_schema": "",
+          "workflow_frequency" : "D-HANA"
+        },
+        "source": "WORKSPACE"
+      },
+      "job_cluster_key": "integration-tests-cluster",
+      "timeout_seconds": 0,
+      "email_notifications": {}
+    },
+    {
+      "task_key": "datta_dlt_pipeline",
+      "depends_on": [
+        {
+          "task_key": "process_start_dlt_pipeline"
+        }
+      ],
+      "pipeline_task": {
+        "pipeline_id": "{{ fi_d_hana_dlt_pipeline_id }}",
+        "full_refresh": false
+      },
+      "timeout_seconds": 0,
+      "email_notifications": {
+        "on_failure": "{{ emails }}",
+        "no_alert_for_skipped_runs": false
+      }
+    },    
+    {
+      "task_key": "register_delta_tables_to_unitycatalog",
+      "depends_on": [
+        {
+          "task_key": "datta_dlt_pipeline"
+        }
+      ],
+      "notebook_task": {
+        "notebook_path": "{{ repos_path }}/dlt_pipelines/register_deltatables_to_UC_d",
+        "base_parameters": {
+          "env": "{{ env }}",
+          "repos_path": "{{ repos_path }}",
+          "unique_repo_branch_id": "{{ unique_repo_branch_id }}",
+          "unique_repo_branch_id_schema": "{{ unique_repo_branch_id }}",
+          "requirements_filepath": "{{ requirements_filepath }}"
+        },
+        "source": "WORKSPACE"
+      },
+      "job_cluster_key": "integration-tests-cluster",
+      "max_retries": 2,
+      "min_retry_interval_millis": 30000,
+      "retry_on_timeout": false,
+      "timeout_seconds": 1200,
+      "email_notifications": {},
+      "notification_settings": {
+        "no_alert_for_skipped_runs": false,
+        "no_alert_for_canceled_runs": false,
+        "alert_on_last_attempt": false
+      }
+    },
+    {
+      "task_key": "process_end_dlt_pipeline",
+      "depends_on": [
+        {
+          "task_key": "register_delta_tables_to_unitycatalog"
+        }
+      ],
+      "notebook_task": {
+        "notebook_path": "{{ repos_path }}/dlt_pipelines/process_end_dlt_pipeline",
+        "base_parameters": {
+          "env": "{{ env }}",
+          "repos_path": "{{ repos_path }}",
+          "unique_repo_branch_id": "",
+          "unique_repo_branch_id_schema": "",
+          "workflow_frequency" : "D-HANA"
+        },
+        "source": "WORKSPACE"
+      },
+      "job_cluster_key": "integration-tests-cluster",
+      "timeout_seconds": 0,
+      "email_notifications": {}
+    },
+    {
+      "task_key": "check_uc",
+      "depends_on": [
+        {
+          "task_key": "process_end_dlt_pipeline"
+        }
+      ],
+      "notebook_task": {
+        "notebook_path": "{{ repos_path }}/integration_tests/scripts/check_uc_daily_hana",
+        "base_parameters": {
+          "unique_repo_branch_id": "{{ unique_repo_branch_id }}",
+          "unique_repo_branch_id_schema": "{{ unique_repo_branch_id }}",
+          "env": "{{ env }}",
+          "host": "{{ host }}",
+          "requirements_filepath": "{{ requirements_filepath }}"
+        },
+        "source": "WORKSPACE"
+      },
+      "job_cluster_key": "integration-tests-cluster",
+      "timeout_seconds": 0,
+      "email_notifications": {}
+    }
+  ],
+  "job_clusters": [
+    {
+      "job_cluster_key": "integration-tests-cluster",
+      "new_cluster": {
+        "cluster_name": "",
+        "spark_version": "15.4.x-scala2.12",
+        "spark_conf": {
+          "spark.databricks.delta.preview.enabled": "true",
+          "spark.master": "local[*, 4]",
+          "spark.databricks.cluster.profile": "singleNode"
+        },
+        "azure_attributes": {
+          "first_on_demand": 1,
+          "availability": "ON_DEMAND_AZURE",
+          "spot_bid_max_price": -1
+        },
+        "node_type_id": "Standard_DS3_v2",
+        "custom_tags": {
+          "ResourceClass": "SingleNode"
+        },
+        "spark_env_vars": {
+          "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+        },
+        "enable_elastic_disk": true,
+        "data_security_mode": "SINGLE_USER",
+        "runtime_engine": "STANDARD",
+        "num_workers": 0
+      }
+    }
+  ],
+  "timeout_seconds": 0
+}
