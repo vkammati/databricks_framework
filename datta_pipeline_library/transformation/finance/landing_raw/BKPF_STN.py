@@ -1,0 +1,179 @@
+  
+#BKPF_STN Transform Load Landing to Raw
+
+
+
+import logging
+
+from pyspark.sql import SparkSession
+from pyspark.sql.utils import AnalysisException
+spark = SparkSession.getActiveSession()
+spark.conf.set("spark.sql.parquet.enableVectorizedReader","false")
+
+from pyspark.sql.types import StringType, StructType, StructField, IntegerType, DecimalType, DoubleType, BinaryType
+from datta_pipeline_library.core.landing_raw import landing_raw,landing_raw_batch,landing_raw_aecorsoft
+from datta_pipeline_library.core.transform_basic import transform_yrmono 
+
+def load_BKPF_STN(spn, base_config):
+        
+    #:param spn: Azure SPN used to call the Databricks REST API
+    #:param base_config: BaseConfig object
+        
+    logging.info("Started data load for BKPF_STN from Landing to Raw")
+
+    cost_schema = (StructType([
+        StructField("MANDT", StringType(), True),
+StructField("BUKRS", StringType(), True),
+StructField("BELNR", StringType(), True),
+StructField("GJAHR", StringType(), True),
+StructField("BLART", StringType(), True),
+StructField("BLDAT", StringType(), True),
+StructField("BUDAT", StringType(), True),
+StructField("MONAT", StringType(), True),
+StructField("CPUDT", StringType(), True),
+StructField("CPUTM", StringType(), True),
+StructField("AEDAT", StringType(), True),
+StructField("UPDDT", StringType(), True),
+StructField("WWERT", StringType(), True),
+StructField("USNAM", StringType(), True),
+StructField("TCODE", StringType(), True),
+StructField("BVORG", StringType(), True),
+StructField("XBLNR", StringType(), True),
+StructField("DBBLG", StringType(), True),
+StructField("STBLG", StringType(), True),
+StructField("STJAH", StringType(), True),
+StructField("BKTXT", StringType(), True),
+StructField("WAERS", StringType(), True),
+StructField("KURSF", DecimalType(9,5), True),
+StructField("KZWRS", StringType(), True),
+StructField("KZKRS", DecimalType(9,5), True),
+StructField("BSTAT", StringType(), True),
+StructField("XNETB", StringType(), True),
+StructField("FRATH", DecimalType(13,2), True),
+StructField("XRUEB", StringType(), True),
+StructField("GLVOR", StringType(), True),
+StructField("GRPID", StringType(), True),
+StructField("DOKID", StringType(), True),
+StructField("ARCID", StringType(), True),
+StructField("IBLAR", StringType(), True),
+StructField("AWTYP", StringType(), True),
+StructField("AWKEY", StringType(), True),
+StructField("FIKRS", StringType(), True),
+StructField("HWAER", StringType(), True),
+StructField("HWAE2", StringType(), True),
+StructField("HWAE3", StringType(), True),
+StructField("KURS2", DecimalType(9,5), True),
+StructField("KURS3", DecimalType(9,5), True),
+StructField("BASW2", StringType(), True),
+StructField("BASW3", StringType(), True),
+StructField("UMRD2", StringType(), True),
+StructField("UMRD3", StringType(), True),
+StructField("XSTOV", StringType(), True),
+StructField("STODT", StringType(), True),
+StructField("XMWST", StringType(), True),
+StructField("CURT2", StringType(), True),
+StructField("CURT3", StringType(), True),
+StructField("KUTY2", StringType(), True),
+StructField("KUTY3", StringType(), True),
+StructField("XSNET", StringType(), True),
+StructField("AUSBK", StringType(), True),
+StructField("XUSVR", StringType(), True),
+StructField("DUEFL", StringType(), True),
+StructField("AWSYS", StringType(), True),
+StructField("TXKRS", DecimalType(9,5), True),
+StructField("LOTKZ", StringType(), True),
+StructField("XWVOF", StringType(), True),
+StructField("STGRD", StringType(), True),
+StructField("PPNAM", StringType(), True),
+StructField("BRNCH", StringType(), True),
+StructField("NUMPG", StringType(), True),
+StructField("ADISC", StringType(), True),
+StructField("XREF1_HD", StringType(), True),
+StructField("XREF2_HD", StringType(), True),
+StructField("XREVERSAL", StringType(), True),
+StructField("REINDAT", StringType(), True),
+StructField("RLDNR", StringType(), True),
+StructField("LDGRP", StringType(), True),
+StructField("PROPMANO", StringType(), True),
+StructField("XBLNR_ALT", StringType(), True),
+StructField("VATDATE", StringType(), True),
+StructField("DOCCAT", StringType(), True),
+StructField("XSPLIT", StringType(), True),
+StructField("CASH_ALLOC", StringType(), True),
+StructField("FOLLOW_ON", StringType(), True),
+StructField("XREORG", StringType(), True),
+StructField("SUBSET", StringType(), True),
+StructField("KURST", StringType(), True),
+StructField("KURSX", DecimalType(28,14), True),
+StructField("KUR2X", DecimalType(28,14), True),
+StructField("KUR3X", DecimalType(28,14), True),
+StructField("XMCA", StringType(), True),
+StructField("RESUBMISSION", StringType(), True),
+StructField("/SAPF15/STATUS", StringType(), True),
+StructField("PSOTY", StringType(), True),
+StructField("PSOAK", StringType(), True),
+StructField("PSOKS", StringType(), True),
+StructField("PSOSG", StringType(), True),
+StructField("PSOFN", StringType(), True),
+StructField("INTFORM", StringType(), True),
+StructField("INTDATE", StringType(), True),
+StructField("PSOBT", StringType(), True),
+StructField("PSOZL", StringType(), True),
+StructField("PSODT", StringType(), True),
+StructField("PSOTM", StringType(), True),
+StructField("FM_UMART", StringType(), True),
+StructField("CCINS", StringType(), True),
+StructField("CCNUM", StringType(), True),
+StructField("SSBLK", StringType(), True),
+StructField("BATCH", StringType(), True),
+StructField("SNAME", StringType(), True),
+StructField("SAMPLED", StringType(), True),
+StructField("EXCLUDE_FLAG", StringType(), True),
+StructField("BLIND", StringType(), True),
+StructField("OFFSET_STATUS", StringType(), True),
+StructField("OFFSET_REFER_DAT", StringType(), True),
+StructField("PENRC", StringType(), True),
+StructField("KNUMV", StringType(), True),
+StructField("ZAWKEY_REF_ORGUNIT", StringType(), True),
+StructField("AWKEY_REFDOC", StringType(), True),
+StructField("Z_CONCAT_KEY", StringType(), True),
+StructField("LAST_ACTION_CD", StringType(), True),
+StructField("LAST_DTM", DecimalType(15,0), True),
+StructField("SYSTEM_ID", StringType(), True),
+StructField("ZFINT_HEADER_ID", StringType(), True),
+StructField("ZUSNAM_ID", StringType(), True),
+StructField("ZBLART_ID", StringType(), True),
+StructField("ZSTBLG_ID", StringType(), True),
+StructField("ZAWTYP_ID", StringType(), True),
+StructField("ZHWAER_ID", StringType(), True),
+StructField("ZCUR_ID", StringType(), True),
+StructField("ZSH_COMP_ID", StringType(), True),
+StructField("ZHWAE2_ID", StringType(), True),
+StructField("ZHWAE3_ID", StringType(), True),
+StructField("ZFISCAL_YEAR_PERIOD", StringType(), True),
+StructField("Z_TAX_DCMT_SOURCE_ID", StringType(), True),
+StructField("Z_PURC_SOURCE_ID", StringType(), True),
+StructField("CTXKRS", DecimalType(9,5), True),
+StructField("PPDAT", StringType(), True),
+StructField("PPTME", StringType(), True),
+StructField("PPTCOD", StringType(), True),
+StructField("PYBASTYP", StringType(), True),
+StructField("PYBASNO", StringType(), True),
+StructField("PYBASDAT", StringType(), True),
+StructField("PYIBAN", StringType(), True),
+StructField("INWARDNO_HD", StringType(), True),
+StructField("INWARDDT_HD", StringType(), True),
+
+    ])
+    )
+    dataset_name = "BKPF_STN"
+    input_format = "parquet"
+    partitions = None
+    ge_rules = None
+    confidentiality=True
+
+    landing_raw(spn, base_config, dataset_name, cost_schema, transform_yrmono, input_format, partitions, ge_rules,confidentiality)
+    
+    logging.info("Completed data load for BKPF_STN from Landing to Raw")
+
+        
